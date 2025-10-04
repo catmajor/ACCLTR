@@ -188,11 +188,13 @@ export default function SpeechTranscriber() {
 
   const sendTranscriptToServer = async (text) => {
     try {
-      await fetch('http://localhost:3000/api/transcript', {
+      const resp = await fetch('http://localhost:3000/api/transcript', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transcript: text }),
       });
+      const data = await resp.json();
+      console.log('Transcript sent to server:', data);
     } catch (error) {
       console.error('Failed to send transcript:', error);
     }

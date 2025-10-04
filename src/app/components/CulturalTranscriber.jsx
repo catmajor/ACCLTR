@@ -187,7 +187,21 @@ export default function CulturalTranscriber() {
 
     recognitionRef.current = recognition;
   };
-
+  const analyzeTranscript = async (text) => {
+    try {
+      const response = await fetch('/api/transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: text }),
+      });
+      const data = await response.json();
+      // Do something with data.entities or handle error
+      return data;
+    } catch (err) {
+      console.error('API error:', err);
+      return null;
+    }
+  };
   // Mock translation function (placeholder for backend)
   const translateText = async (text) => {
     if (!text.trim()) return;
@@ -195,21 +209,18 @@ export default function CulturalTranscriber() {
     setIsTranslating(true);
     
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
+    const resp = await analyzeTranscript(text);
     // Mock translation (replace with actual API call)
     const mockTranslation = `[TRANSLATED] ${text}`;
     finalTranslationRef.current += mockTranslation;
     setEnglishTranslation(finalTranslationRef.current);
     
     // Mock cultural highlighting
-    const words = text.toLowerCase().split(' ');
-    const foundHighlights = mockCulturalHighlights.filter(highlight => 
-      words.some(word => word.includes(highlight.word.toLowerCase()))
-    );
     
-    if (foundHighlights.length > 0) {
-      setCulturalHighlights(prev => [...prev, ...foundHighlights]);
+    if (resp && resp.success && resp.entities) {
+      resp.entites = resp.entities.filter(e => e.label != "MISC");
+      console.log(resp.entities);
+      setCulturalHighlights(prev => [...prev, ...resp.entities]);
     }
     
     setIsTranslating(false);
