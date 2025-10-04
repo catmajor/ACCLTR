@@ -1,11 +1,10 @@
 
-import Recorder from "./components/Recorder";
+import SpeechTranscriber from "./components/SpeechTranscriber";
 
 export default function HomePage() {
   return (
-    <main className="p-4">
-      <h1>Microphone Audio Capture</h1>
-      <Recorder />
+    <main className="min-h-screen bg-gray-100">
+      <SpeechTranscriber />
     </main>
   );
 }
