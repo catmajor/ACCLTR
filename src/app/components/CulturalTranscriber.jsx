@@ -233,17 +233,35 @@ export default function CulturalTranscriber() {
   };
 
   const addToConversations = (originalText) => {
-    const newConversation = {
-      id: Date.now(),
-      originalText,
-      timestamp: new Date(),
-      sourceLanguage,
-      targetLanguage, // stored for context of the TTS choice
-      sessionId: currentSessionId,
-      culturalHighlights: [...culturalHighlights],
-    };
+    (async () => {
+      let translatedText = null;
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: originalText, targetLang: (targetLanguage || 'en-US').split('-')[0] }),
+        });
+        if (res.ok) {
+          const j = await res.json();
+          translatedText = j.text || null;
+        }
+      } catch (e) {
+        console.warn('Translation fetch failed', e);
+      }
 
-    setConversations((prev) => [newConversation, ...prev]);
+      const newConversation = {
+        id: Date.now(),
+        originalText,
+        translatedText,
+        timestamp: new Date(),
+        sourceLanguage,
+        targetLanguage, // stored for context of the TTS choice
+        sessionId: currentSessionId,
+        culturalHighlights: [...culturalHighlights],
+      };
+
+      setConversations((prev) => [newConversation, ...prev]);
+    })();
 
     // Clear current session
     setTranscript("");
@@ -440,9 +458,11 @@ export default function CulturalTranscriber() {
                 {transcript && (
                   <div className="mb-2">
                     <span className="text-xs font-medium text-amber-700">Final: </span>
-                    <span className="text-gray-800">{transcript}</span>
+                    <div className="text-gray-800">{transcript}</div>
                   </div>
                 )}
+                {/* If we have a translated text for the live session, show it below original */}
+                {/** Note: live session translation only available after stop (when conversation saved) **/}
                 {interimTranscript && interimResults && (
                   <div className="italic text-amber-600">
                     <span className="text-xs font-medium">Interim: </span>
@@ -531,6 +551,16 @@ export default function CulturalTranscriber() {
                       {conversation.originalText}
                     </div>
                   </div>
+
+                  {/* Translated Text */}
+                  {conversation.translatedText && (
+                    <div className="mb-3">
+                      <h4 className="text-sm font-medium text-gray-700 mb-1">Translated:</h4>
+                      <div className="text-gray-600 whitespace-pre-wrap bg-white/30 p-2 rounded">
+                        {conversation.translatedText}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Cultural Highlights */}
                   {conversation.culturalHighlights.length > 0 && (
