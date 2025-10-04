@@ -1,0 +1,5 @@
+faster-whisper>=0.10.0
+torch>=2.0.0
+numpy>=1.21.0
+websockets>=11.0.0
+asyncio-mqtt>=0.13.0
