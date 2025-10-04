@@ -6,24 +6,19 @@ export default function CulturalTranscriber() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
-  const [englishTranslation, setEnglishTranslation] = useState("");
-  const [interimEnglishTranslation, setInterimEnglishTranslation] = useState("");
   const [culturalHighlights, setCulturalHighlights] = useState([]);
   const [sourceLanguage, setSourceLanguage] = useState("es-ES");
-  const [targetLanguage, setTargetLanguage] = useState("en-US");
+  const [targetLanguage, setTargetLanguage] = useState("en-US"); // used only for TTS on stop
   const [isSupported, setIsSupported] = useState(false);
   const [error, setError] = useState("");
   const [isContinuous, setIsContinuous] = useState(true);
   const [interimResults, setInterimResults] = useState(true);
   const [conversations, setConversations] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
-  const [isTranslating, setIsTranslating] = useState(false);
-  
+
   const recognitionRef = useRef(null);
   const finalTranscriptRef = useRef("");
-  const finalTranslationRef = useRef("");
   const chatContainerRef = useRef(null);
-  const translationIntervalRef = useRef(null);
 
   // Available languages supported by Web Speech API
   const languages = [
@@ -83,7 +78,6 @@ export default function CulturalTranscriber() {
     if (typeof window !== "undefined") {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       setIsSupported(!!SpeechRecognition);
-      
       if (SpeechRecognition) {
         initializeRecognition();
       } else {
@@ -101,58 +95,53 @@ export default function CulturalTranscriber() {
 
   const initializeRecognition = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
     if (!SpeechRecognition) {
       setError("Speech recognition is not supported in this browser.");
       return;
     }
 
     const recognition = new SpeechRecognition();
-    
-    // Configure recognition settings
     recognition.continuous = isContinuous;
     recognition.interimResults = interimResults;
     recognition.lang = sourceLanguage;
     recognition.maxAlternatives = 1;
 
-    // Event handlers
     recognition.onstart = () => {
-      console.log("Speech recognition started");
       setError("");
       setCurrentSessionId(Date.now());
-      startTranslationStreaming();
     };
 
     recognition.onresult = (event) => {
-      let interimTranscript = "";
-      let finalTranscript = "";
+      let interim = "";
+      let finalChunk = "";
 
-      // Process all results
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        
+        const t = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript;
+          finalChunk += t;
         } else {
-          interimTranscript += transcript;
+          interim += t;
         }
       }
 
-      // Update state
-      setInterimTranscript(interimTranscript);
-      
-      if (finalTranscript) {
-        finalTranscriptRef.current += finalTranscript;
+      setInterimTranscript(interim);
+
+      if (finalChunk) {
+        finalTranscriptRef.current += finalChunk;
         setTranscript(finalTranscriptRef.current);
-        
-        // Trigger translation for final text
-        translateText(finalTranscript);
+
+        // Update cultural highlights from the finalized text
+        const words = finalChunk.toLowerCase().split(/\s+/).filter(Boolean);
+        const found = mockCulturalHighlights.filter(h =>
+          words.some(w => w.includes(h.word.toLowerCase()))
+        );
+        if (found.length > 0) {
+          setCulturalHighlights(prev => [...prev, ...found]);
+        }
       }
     };
 
     recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      
       let errorMessage = "";
       switch (event.error) {
         case "no-speech":
@@ -173,65 +162,15 @@ export default function CulturalTranscriber() {
         default:
           errorMessage = `Speech recognition error: ${event.error}`;
       }
-      
       setError(errorMessage);
       setIsListening(false);
-      stopTranslationStreaming();
     };
 
     recognition.onend = () => {
-      console.log("Speech recognition ended");
       setIsListening(false);
-      stopTranslationStreaming();
     };
 
     recognitionRef.current = recognition;
-  };
-
-  // Mock translation function (placeholder for backend)
-  const translateText = async (text) => {
-    if (!text.trim()) return;
-    
-    setIsTranslating(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Mock translation (replace with actual API call)
-    const mockTranslation = `[TRANSLATED] ${text}`;
-    finalTranslationRef.current += mockTranslation;
-    setEnglishTranslation(finalTranslationRef.current);
-    
-    // Mock cultural highlighting
-    const words = text.toLowerCase().split(' ');
-    const foundHighlights = mockCulturalHighlights.filter(highlight => 
-      words.some(word => word.includes(highlight.word.toLowerCase()))
-    );
-    
-    if (foundHighlights.length > 0) {
-      setCulturalHighlights(prev => [...prev, ...foundHighlights]);
-    }
-    
-    setIsTranslating(false);
-  };
-
-  // Mock streaming translation (placeholder for backend)
-  const startTranslationStreaming = () => {
-    translationIntervalRef.current = setInterval(() => {
-      if (interimTranscript) {
-        // Mock interim translation
-        const mockInterimTranslation = `[STREAMING] ${interimTranscript}`;
-        setInterimEnglishTranslation(mockInterimTranslation);
-      }
-    }, 1000);
-  };
-
-  const stopTranslationStreaming = () => {
-    if (translationIntervalRef.current) {
-      clearInterval(translationIntervalRef.current);
-      translationIntervalRef.current = null;
-    }
-    setInterimEnglishTranslation("");
   };
 
   const startListening = () => {
@@ -239,86 +178,114 @@ export default function CulturalTranscriber() {
       setError("Speech recognition is not initialized.");
       return;
     }
-
     try {
       recognitionRef.current.start();
       setIsListening(true);
       setError("");
-    } catch (error) {
-      console.error("Error starting speech recognition:", error);
+    } catch (err) {
       setError("Failed to start speech recognition. Please try again.");
     }
   };
 
-  const stopListening = () => {
+  // Plays back a TTS translation of the captured text (no on-screen translation)
+  const stopListening = async () => {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
-      
-      // Add current conversation to history
-      const currentText = finalTranscriptRef.current.trim();
-      const currentTranslation = finalTranslationRef.current.trim();
-      
-      if (currentText) {
-        addToConversations(currentText, currentTranslation);
+
+      try {
+        // small delay so the final chunk gets appended to finalTranscriptRef
+        await new Promise((r) => setTimeout(r, 120));
+
+        const textToSpeak = (finalTranscriptRef.current || transcript || "").trim();
+
+        if (textToSpeak) {
+          const res = await fetch("/api/speak-translation", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            // send simple language code like "en" / "es", derived from targetLanguage
+            body: JSON.stringify({
+              text: textToSpeak,
+              targetLang: (targetLanguage || "en-US").split("-")[0],
+            }),
+          });
+
+          if (!res.ok) {
+            const msg = await res.text().catch(() => "");
+            setError(`TTS failed: ${msg}`);
+          } else {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.play().catch(() => {});
+          }
+        }
+
+        // Add current conversation to history
+        const currentText = finalTranscriptRef.current.trim();
+        if (currentText) {
+          addToConversations(currentText);
+        }
+      } catch (e) {
+        setError("Failed to fetch or play audio.");
       }
     }
   };
 
-  const addToConversations = (originalText, translatedText) => {
+  const addToConversations = (originalText) => {
     const newConversation = {
       id: Date.now(),
-      originalText: originalText,
-      translatedText: translatedText,
+      originalText,
       timestamp: new Date(),
-      sourceLanguage: sourceLanguage,
-      targetLanguage: targetLanguage,
+      sourceLanguage,
+      targetLanguage, // stored for context of the TTS choice
       sessionId: currentSessionId,
-      culturalHighlights: [...culturalHighlights]
+      culturalHighlights: [...culturalHighlights],
     };
-    
-    setConversations(prev => [newConversation, ...prev]);
-    
+
+    setConversations((prev) => [newConversation, ...prev]);
+
     // Clear current session
     setTranscript("");
     setInterimTranscript("");
-    setEnglishTranslation("");
-    setInterimEnglishTranslation("");
     setCulturalHighlights([]);
     finalTranscriptRef.current = "";
-    finalTranslationRef.current = "";
   };
 
   const clearAllConversations = () => {
     setConversations([]);
     setTranscript("");
     setInterimTranscript("");
-    setEnglishTranslation("");
-    setInterimEnglishTranslation("");
     setCulturalHighlights([]);
     finalTranscriptRef.current = "";
-    finalTranslationRef.current = "";
     setError("");
   };
 
   const deleteConversation = (id) => {
-    setConversations(prev => prev.filter(conv => conv.id !== id));
+    setConversations((prev) => prev.filter((conv) => conv.id !== id));
   };
 
   const copyConversation = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      alert("Conversation copied to clipboard!");
-    }).catch((error) => {
-      console.error("Failed to copy text:", error);
-      alert("Failed to copy text to clipboard.");
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        alert("Conversation copied to clipboard!");
+      })
+      .catch(() => {
+        alert("Failed to copy text to clipboard.");
+      });
   };
 
   const downloadAllConversations = () => {
-    const allText = conversations.map(conv => 
-      `[${conv.timestamp.toLocaleString()}] ${conv.sourceLanguage} → ${conv.targetLanguage}\nOriginal: ${conv.originalText}\nTranslation: ${conv.translatedText}\nCultural Highlights: ${conv.culturalHighlights.map(h => h.word).join(', ')}\n`
-    ).join('\n\n');
-    
+    const allText = conversations
+      .map(
+        (conv) =>
+          `[${conv.timestamp.toLocaleString()}] ${conv.sourceLanguage} (spoken) → ${conv.targetLanguage} (audio TTS)\n` +
+          `Original: ${conv.originalText}\n` +
+          `Cultural Highlights: ${conv.culturalHighlights.map((h) => h.word).join(", ")}\n`
+      )
+      .join("\n\n");
+
     const blob = new Blob([allText], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -331,7 +298,7 @@ export default function CulturalTranscriber() {
   };
 
   const formatTimestamp = (timestamp) => {
-    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   const getStatusColor = () => {
@@ -342,12 +309,12 @@ export default function CulturalTranscriber() {
 
   const getStatusText = () => {
     if (error) return "Error";
-    if (isListening) return "Listening & Translating...";
+    if (isListening) return "Listening...";
     return "Ready";
   };
 
   const getLanguageName = (code) => {
-    return languages.find(lang => lang.code === code)?.name || code;
+    return languages.find((lang) => lang.code === code)?.name || code;
   };
 
   return (
@@ -358,7 +325,7 @@ export default function CulturalTranscriber() {
           <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">
             ACCLTR
           </h1>
-          
+
           {/* Language Selection */}
           <div className="flex flex-wrap gap-4 items-center justify-center mb-4">
             <div className="flex items-center space-x-2">
@@ -376,13 +343,13 @@ export default function CulturalTranscriber() {
                 ))}
               </select>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <span className="text-2xl">→</span>
             </div>
-            
+
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">Translate to:</label>
+              <label className="text-sm font-medium text-gray-700">Audio (TTS) language:</label>
               <select
                 value={targetLanguage}
                 onChange={(e) => setTargetLanguage(e.target.value)}
@@ -405,7 +372,7 @@ export default function CulturalTranscriber() {
             </div>
           )}
 
-          {/* Control Buttons - Fixed Mobile Layout */}
+          {/* Control Buttons */}
           <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 mb-3 sm:mb-4 w-full">
             {!isListening ? (
               <button
@@ -425,7 +392,7 @@ export default function CulturalTranscriber() {
                 <span>Stop Recording</span>
               </button>
             )}
-            
+
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
               <button
                 onClick={clearAllConversations}
@@ -433,7 +400,7 @@ export default function CulturalTranscriber() {
               >
                 Clear All
               </button>
-              
+
               <button
                 onClick={downloadAllConversations}
                 disabled={conversations.length === 0}
@@ -451,67 +418,39 @@ export default function CulturalTranscriber() {
               <span className="text-sm text-gray-600">
                 Status: {getStatusText()}
               </span>
-              {isTranslating && (
-                <span className="text-xs text-blue-600 animate-pulse">Translating...</span>
-              )}
             </div>
           </div>
         </div>
 
         {/* Current Session */}
-        {(transcript || interimTranscript || englishTranslation || interimEnglishTranslation) && (
+        {(transcript || interimTranscript) && (
           <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6 mb-4 border border-amber-100">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center space-x-2">
               <span>🎯</span>
               <span>Current Session</span>
               <span className="text-sm text-gray-500">{formatTimestamp(new Date())}</span>
             </h2>
-            
-            {/* Original Speech */}
-            {(transcript || interimTranscript) && (
-              <div className="mb-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  Original ({getLanguageName(sourceLanguage)}):
-                </h3>
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-400 p-4 rounded-lg">
-                  {transcript && (
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-amber-700">Final: </span>
-                      <span className="text-gray-800">{transcript}</span>
-                    </div>
-                  )}
-                  {interimTranscript && interimResults && (
-                    <div className="italic text-amber-600">
-                      <span className="text-xs font-medium">Interim: </span>
-                      {interimTranscript}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
-            {/* English Translation */}
-            {(englishTranslation || interimEnglishTranslation) && (
-              <div className="mb-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  Translation ({getLanguageName(targetLanguage)}):
-                </h3>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-400 p-4 rounded-lg">
-                  {englishTranslation && (
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-blue-700">Final: </span>
-                      <span className="text-gray-800">{englishTranslation}</span>
-                    </div>
-                  )}
-                  {interimEnglishTranslation && (
-                    <div className="italic text-blue-600">
-                      <span className="text-xs font-medium">Streaming: </span>
-                      {interimEnglishTranslation}
-                    </div>
-                  )}
-                </div>
+            {/* Original Speech */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Original ({getLanguageName(sourceLanguage)}):
+              </h3>
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-400 p-4 rounded-lg">
+                {transcript && (
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-amber-700">Final: </span>
+                    <span className="text-gray-800">{transcript}</span>
+                  </div>
+                )}
+                {interimTranscript && interimResults && (
+                  <div className="italic text-amber-600">
+                    <span className="text-xs font-medium">Interim: </span>
+                    {interimTranscript}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Cultural Highlights */}
             {culturalHighlights.length > 0 && (
@@ -542,26 +481,28 @@ export default function CulturalTranscriber() {
               💬 Cultural Conversations ({conversations.length})
             </h2>
           </div>
-          
+
           {/* Chat Messages */}
-          <div 
+          <div
             ref={chatContainerRef}
             className="h-96 overflow-y-auto p-4 space-y-4"
           >
-            {/* Conversation History */}
             {conversations.length === 0 && !transcript && !interimTranscript ? (
               <div className="text-center py-12 text-gray-500">
                 <div className="text-6xl mb-4">🌍</div>
-                <p className="text-lg">Start speaking to begin cultural translation</p>
+                <p className="text-lg">Start speaking to begin cultural capture</p>
                 <p className="text-sm mt-2">Select your language and click "Start Recording"</p>
               </div>
             ) : (
               conversations.map((conversation) => (
-                <div key={conversation.id} className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-400 p-4 rounded-lg hover:from-orange-100 hover:to-red-100 transition-colors">
+                <div
+                  key={conversation.id}
+                  className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-400 p-4 rounded-lg hover:from-orange-100 hover:to-red-100 transition-colors"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs font-medium text-orange-600">
-                        {getLanguageName(conversation.sourceLanguage)} → {getLanguageName(conversation.targetLanguage)}
+                        {getLanguageName(conversation.sourceLanguage)} (spoken) → {getLanguageName(conversation.targetLanguage)} (audio)
                       </span>
                       <span className="text-xs text-orange-500">
                         {formatTimestamp(conversation.timestamp)}
@@ -569,7 +510,7 @@ export default function CulturalTranscriber() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => copyConversation(`${conversation.originalText}\n\n${conversation.translatedText}`)}
+                        onClick={() => copyConversation(`${conversation.originalText}`)}
                         className="text-xs text-amber-600 hover:text-amber-800 font-medium"
                       >
                         Copy
@@ -582,7 +523,7 @@ export default function CulturalTranscriber() {
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Original Text */}
                   <div className="mb-3">
                     <h4 className="text-sm font-medium text-gray-700 mb-1">Original:</h4>
@@ -590,15 +531,7 @@ export default function CulturalTranscriber() {
                       {conversation.originalText}
                     </div>
                   </div>
-                  
-                  {/* Translation */}
-                  <div className="mb-3">
-                    <h4 className="text-sm font-medium text-gray-700 mb-1">Translation:</h4>
-                    <div className="text-gray-800 whitespace-pre-wrap bg-white/50 p-2 rounded">
-                      {conversation.translatedText}
-                    </div>
-                  </div>
-                  
+
                   {/* Cultural Highlights */}
                   {conversation.culturalHighlights.length > 0 && (
                     <div>
@@ -625,12 +558,12 @@ export default function CulturalTranscriber() {
         <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
           <h3 className="text-sm font-medium text-amber-800 mb-2">How to use ACCLTR:</h3>
           <ul className="text-sm text-amber-700 space-y-1">
-            <li>• Select your source language (what you'll speak) and target language (translation)</li>
-            <li>• Click "Start Recording" to begin speech recognition and translation</li>
-            <li>• Speak clearly - your speech will be transcribed and translated in real-time</li>
+            <li>• Select your source language (what you'll speak) and TTS audio language</li>
+            <li>• Click "Start Recording" to begin speech recognition</li>
+            <li>• Speak clearly — your speech will be transcribed in real-time</li>
             <li>• Cultural references will be highlighted as you speak</li>
-            <li>• Click "Stop Recording" to save the conversation</li>
-            <li>• Each conversation appears at the top with original text, translation, and cultural highlights</li>
+            <li>• Click "Stop Recording" to play back audio and save the conversation</li>
+            <li>• Each conversation appears at the top with original text and cultural highlights</li>
           </ul>
         </div>
       </div>
