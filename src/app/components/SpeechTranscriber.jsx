@@ -105,6 +105,7 @@ export default function SpeechTranscriber() {
         
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
+          sendTranscriptToServer(transcript);
         } else {
           interimTranscript += transcript;
         }
@@ -185,6 +186,18 @@ export default function SpeechTranscriber() {
     setError("");
   };
 
+  const sendTranscriptToServer = async (text) => {
+    try {
+      await fetch('http://localhost:3000/api/transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: text }),
+      });
+    } catch (error) {
+      console.error('Failed to send transcript:', error);
+    }
+  }; 
+
   const copyToClipboard = () => {
     const fullText = finalTranscriptRef.current;
     navigator.clipboard.writeText(fullText).then(() => {
@@ -231,7 +244,7 @@ export default function SpeechTranscriber() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Language
+              Languageii
             </label>
             <select
               value={language}
