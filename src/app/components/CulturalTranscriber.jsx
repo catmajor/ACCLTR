@@ -405,41 +405,43 @@ export default function CulturalTranscriber() {
             </div>
           )}
 
-          {/* Control Buttons */}
-          <div className="flex justify-center space-x-4 mb-4">
+          {/* Control Buttons - Fixed Mobile Layout */}
+          <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 mb-3 sm:mb-4 w-full">
             {!isListening ? (
               <button
                 onClick={startListening}
                 disabled={!isSupported}
-                className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2 shadow-lg"
+                className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg min-h-[44px] text-sm sm:text-sm"
               >
-                <span>🎤</span>
+                <span className="text-base sm:text-base">🎤</span>
                 <span>Start Recording</span>
               </button>
             ) : (
               <button
                 onClick={stopListening}
-                className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 font-medium flex items-center space-x-2 shadow-lg"
+                className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 font-medium flex items-center justify-center space-x-2 shadow-lg min-h-[44px] text-sm sm:text-sm"
               >
-                <span>⏹️</span>
+                <span className="text-base sm:text-base">⏹️</span>
                 <span>Stop Recording</span>
               </button>
             )}
             
-            <button
-              onClick={clearAllConversations}
-              className="px-4 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg hover:from-gray-600 hover:to-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 font-medium shadow-lg"
-            >
-              Clear All
-            </button>
-            
-            <button
-              onClick={downloadAllConversations}
-              disabled={conversations.length === 0}
-              className="px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg"
-            >
-              Download All
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+              <button
+                onClick={clearAllConversations}
+                className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg hover:from-gray-600 hover:to-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 font-medium shadow-lg min-h-[40px] text-sm"
+              >
+                Clear All
+              </button>
+              
+              <button
+                onClick={downloadAllConversations}
+                disabled={conversations.length === 0}
+                className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg min-h-[40px] text-sm"
+              >
+                Download All
+              </button>
+            </div>
           </div>
 
           {/* Status Indicator */}
