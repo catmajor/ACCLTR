@@ -257,6 +257,12 @@ export default function CulturalTranscriber() {
         const textToSpeak = (finalTranscriptRef.current || transcript || "").trim();
 
         if (textToSpeak) {
+          try {
+            const analysis = await analyzeTranscript(textToSpeak);
+            console.log("Transcript analysis:", analysis);
+          } catch (e) {
+            console.log("Transcript analysis failed:", e);
+          }
           const res = await fetch("/api/speak-translation", {
             method: "POST",
             headers: { "content-type": "application/json" },
