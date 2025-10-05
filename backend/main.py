@@ -6,6 +6,7 @@ from typing import Optional
 import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from annotate_service import router as annotate_router
 
 from dotenv import load_dotenv, find_dotenv
 dotenv_file = find_dotenv(".env.local", usecwd=True)
@@ -38,6 +39,7 @@ class OutText(BaseModel):
     source_lang: Optional[str] = None
     target_lang: str
 
+app.include_router(annotate_router, prefix="/api")
 
 @app.get("/health")
 def health():
