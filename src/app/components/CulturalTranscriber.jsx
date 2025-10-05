@@ -539,10 +539,16 @@ export default function CulturalTranscriber() {
                 )}
               </div>
             </div>
-
-            {/* Cultural Highlights */}
-            {culturalHighlights.length > 0 && (
-              <div className="mb-4">
+          </div>
+        )}
+        {/*Cultural Highlights */}
+        {culturalHighlights.length > 0 && ( 
+          <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6 mb-4 border border-amber-100">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center space-x-2">
+                <span>🔍</span>
+                <span>Cultural Highlights (Session)</span>
+             </h2>
+               <div className="mb-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">
                   Cultural References:
                 </h3>
@@ -558,10 +564,8 @@ export default function CulturalTranscriber() {
                   ))}
                 </div>
               </div>
-            )}
           </div>
         )}
-
         {/* Chat Container */}
         <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg border border-amber-100">
           <div className="p-4 border-b border-amber-200">
