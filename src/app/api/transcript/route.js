@@ -65,7 +65,7 @@ export async function POST(req) {
 
   console.log('Extracted entities:', result.entities);
 
-  const apiKey = process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
   if (!apiKey) {
     return new Response(
       JSON.stringify({ error: 'Missing GOOGLE_API_KEY.' }),

@@ -15,7 +15,7 @@ export default function CulturalTranscriber() {
   const [interimResults, setInterimResults] = useState(true);
   const [conversations, setConversations] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
-
+  const [sessionStartTime, setSessionStartTime] = useState(null);
   const recognitionRef = useRef(null);
   const finalTranscriptRef = useRef("");
   const chatContainerRef = useRef(null);
@@ -109,7 +109,9 @@ export default function CulturalTranscriber() {
     recognition.onstart = () => {
       setError("");
       setCurrentSessionId(Date.now());
+      setSessionStartTime(new Date());
     };
+
 
     recognition.onresult = (event) => {
       let interim = "";
@@ -129,15 +131,6 @@ export default function CulturalTranscriber() {
       if (finalChunk) {
         finalTranscriptRef.current += finalChunk;
         setTranscript(finalTranscriptRef.current);
-
-        // Update cultural highlights from the finalized text
-        const words = finalChunk.toLowerCase().split(/\s+/).filter(Boolean);
-        const found = mockCulturalHighlights.filter(h =>
-          words.some(w => w.includes(h.word.toLowerCase()))
-        );
-        if (found.length > 0) {
-          setCulturalHighlights(prev => [...prev, ...found]);
-        }
       }
     };
 
@@ -203,9 +196,9 @@ export default function CulturalTranscriber() {
     // Mock cultural highlighting
     
     if (resp && resp.success && resp.entities) {
-      resp.entites = resp.entities.filter(e => e.label != "MISC");
-      console.log(resp.entities);
-      setCulturalHighlights(prev => [...prev, ...resp.entities]);
+      const filtered = resp.entities.filter((e) => e.label !== "MISC");
+      console.log(filtered);
+      setCulturalHighlights([...culturalHighlights, ...filtered]);
     }
     
     setIsTranslating(false);
@@ -249,7 +242,6 @@ export default function CulturalTranscriber() {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
-
       try {
         // small delay so the final chunk gets appended to finalTranscriptRef
         await new Promise((r) => setTimeout(r, 120));
@@ -258,8 +250,19 @@ export default function CulturalTranscriber() {
 
         if (textToSpeak) {
           try {
-            const analysis = await analyzeTranscript(textToSpeak);
+            let analysis = await analyzeTranscript(textToSpeak);
             console.log("Transcript analysis:", analysis);
+            if (analysis) {
+              analysis = analysis.filter((e) => {
+                let exists = false;
+                culturalHighlights.forEach((ch) => {
+                  if (ch.title === e.title) exists = true;
+                });
+                return !exists;
+              });
+              setCulturalHighlights([...culturalHighlights, ...analysis]);
+            }
+
           } catch (e) {
             console.log("Transcript analysis failed:", e);
           }
@@ -329,7 +332,6 @@ export default function CulturalTranscriber() {
     // Clear current session
     setTranscript("");
     setInterimTranscript("");
-    setCulturalHighlights([]);
     finalTranscriptRef.current = "";
   };
 
@@ -337,7 +339,6 @@ export default function CulturalTranscriber() {
     setConversations([]);
     setTranscript("");
     setInterimTranscript("");
-    setCulturalHighlights([]);
     finalTranscriptRef.current = "";
     setError("");
   };
@@ -509,7 +510,11 @@ export default function CulturalTranscriber() {
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center space-x-2">
               <span>🎯</span>
               <span>Current Session</span>
-              <span className="text-sm text-gray-500">{formatTimestamp(new Date())}</span>
+              {sessionStartTime && (
+                <span className="text-sm text-gray-500" suppressHydrationWarning>
+                  {formatTimestamp(sessionStartTime)}
+                </span>
+              )}
             </h2>
 
             {/* Original Speech */}
@@ -547,8 +552,8 @@ export default function CulturalTranscriber() {
                       key={index}
                       className="bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-300 px-3 py-1 rounded-full text-sm"
                     >
-                      <span className="font-medium text-purple-800">{highlight.word}</span>
-                      <span className="text-purple-600 ml-1">({highlight.type})</span>
+                      <span className="font-medium text-purple-800">{highlight.title}</span>
+                      <span className="text-purple-600 ml-1">({highlight.definition})</span>
                     </div>
                   ))}
                 </div>
