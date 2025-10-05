@@ -2,8 +2,6 @@ import sys
 import json
 import spacy
 from spacy.matcher import PhraseMatcher
-from SPARQLWrapper import SPARQLWrapper, JSON
-from rdflib import Literal 
 
 nlp = spacy.load("es_core_news_sm")
 
