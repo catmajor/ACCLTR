@@ -7,6 +7,7 @@ export default function CulturalTranscriber() {
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [culturalHighlights, setCulturalHighlights] = useState([]);
+  const [currentSessionCulturalHighlights, setCurrentSessionCulturalHighlights] = useState([]);
   const [sourceLanguage, setSourceLanguage] = useState("es-ES");
   const [targetLanguage, setTargetLanguage] = useState("en-US"); // used only for TTS on stop
   const [isSupported, setIsSupported] = useState(false);
@@ -16,6 +17,7 @@ export default function CulturalTranscriber() {
   const [conversations, setConversations] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const recognitionRef = useRef(null);
   const finalTranscriptRef = useRef("");
   const chatContainerRef = useRef(null);
@@ -110,8 +112,9 @@ export default function CulturalTranscriber() {
       setError("");
       setCurrentSessionId(Date.now());
       setSessionStartTime(new Date());
+      // Clear current session cultural highlights when starting new recording
+      setCurrentSessionCulturalHighlights([]);
     };
-
 
     recognition.onresult = (event) => {
       let interim = "";
@@ -165,6 +168,7 @@ export default function CulturalTranscriber() {
 
     recognitionRef.current = recognition;
   };
+
   const analyzeTranscript = async (text) => {
     try {
       const response = await fetch('/api/transcript', {
@@ -173,54 +177,11 @@ export default function CulturalTranscriber() {
         body: JSON.stringify({ transcript: text }),
       });
       const data = await response.json();
-      // Do something with data.entities or handle error
       return data;
     } catch (err) {
       console.error('API error:', err);
       return null;
     }
-  };
-  // Mock translation function (placeholder for backend)
-  const translateText = async (text) => {
-    if (!text.trim()) return;
-    
-    setIsTranslating(true);
-    
-    // Simulate API delay
-    const resp = await analyzeTranscript(text);
-    // Mock translation (replace with actual API call)
-    const mockTranslation = `[TRANSLATED] ${text}`;
-    finalTranslationRef.current += mockTranslation;
-    setEnglishTranslation(finalTranslationRef.current);
-    
-    // Mock cultural highlighting
-    
-    if (resp && resp.success && resp.entities) {
-      const filtered = resp.entities.filter((e) => e.label !== "MISC");
-      console.log(filtered);
-      setCulturalHighlights([...culturalHighlights, ...filtered]);
-    }
-    
-    setIsTranslating(false);
-  };
-
-  // Mock streaming translation (placeholder for backend)
-  const startTranslationStreaming = () => {
-    translationIntervalRef.current = setInterval(() => {
-      if (interimTranscript) {
-        // Mock interim translation
-        const mockInterimTranslation = `[STREAMING] ${interimTranscript}`;
-        setInterimEnglishTranslation(mockInterimTranslation);
-      }
-    }, 1000);
-  };
-
-  const stopTranslationStreaming = () => {
-    if (translationIntervalRef.current) {
-      clearInterval(translationIntervalRef.current);
-      translationIntervalRef.current = null;
-    }
-    setInterimEnglishTranslation("");
   };
 
   const startListening = () => {
@@ -242,6 +203,8 @@ export default function CulturalTranscriber() {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
+      setIsProcessing(true);
+      
       try {
         // small delay so the final chunk gets appended to finalTranscriptRef
         await new Promise((r) => setTimeout(r, 120));
@@ -253,23 +216,28 @@ export default function CulturalTranscriber() {
             let analysis = await analyzeTranscript(textToSpeak);
             console.log("Transcript analysis:", analysis);
             if (analysis) {
+              // Filter out duplicates within current session
               analysis = analysis.filter((e) => {
                 let exists = false;
-                culturalHighlights.forEach((ch) => {
+                currentSessionCulturalHighlights.forEach((ch) => {
                   if (ch.title === e.title) exists = true;
                 });
                 return !exists;
               });
-              setCulturalHighlights([...culturalHighlights, ...analysis]);
+              
+              // Add new cultural highlights to current session
+              setCurrentSessionCulturalHighlights(prev => [...prev, ...analysis]);
+              // Also add to global highlights for display
+              setCulturalHighlights(prev => [...prev, ...analysis]);
             }
 
           } catch (e) {
             console.log("Transcript analysis failed:", e);
           }
+          
           const res = await fetch("/api/speak-translation", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            // send simple language code like "en" / "es", derived from targetLanguage
             body: JSON.stringify({
               text: textToSpeak,
               targetLang: (targetLanguage || "en-US").split("-")[0],
@@ -294,6 +262,8 @@ export default function CulturalTranscriber() {
         }
       } catch (e) {
         setError("Failed to fetch or play audio.");
+      } finally {
+        setIsProcessing(false);
       }
     }
   };
@@ -321,18 +291,20 @@ export default function CulturalTranscriber() {
         translatedText,
         timestamp: new Date(),
         sourceLanguage,
-        targetLanguage, // stored for context of the TTS choice
+        targetLanguage,
         sessionId: currentSessionId,
-        culturalHighlights: [...culturalHighlights],
+        // Only assign the cultural highlights from the current session
+        culturalHighlights: [...currentSessionCulturalHighlights],
       };
 
       setConversations((prev) => [newConversation, ...prev]);
     })();
 
-    // Clear current session
+    // Clear current session data
     setTranscript("");
     setInterimTranscript("");
     finalTranscriptRef.current = "";
+    setCurrentSessionCulturalHighlights([]);
   };
 
   const clearAllConversations = () => {
@@ -340,6 +312,8 @@ export default function CulturalTranscriber() {
     setTranscript("");
     setInterimTranscript("");
     finalTranscriptRef.current = "";
+    setCulturalHighlights([]);
+    setCurrentSessionCulturalHighlights([]);
     setError("");
   };
 
@@ -354,7 +328,7 @@ export default function CulturalTranscriber() {
         alert("Conversation copied to clipboard!");
       })
       .catch(() => {
-        alert("Failed to copy text to clipboard.");
+        alert("Failed to copy text.");
       });
   };
 
@@ -364,7 +338,7 @@ export default function CulturalTranscriber() {
         (conv) =>
           `[${conv.timestamp.toLocaleString()}] ${conv.sourceLanguage} (spoken) → ${conv.targetLanguage} (audio TTS)\n` +
           `Original: ${conv.originalText}\n` +
-          `Cultural Highlights: ${conv.culturalHighlights.map((h) => h.word).join(", ")}\n`
+          `Cultural Highlights: ${conv.culturalHighlights.map((h) => h.title).join(", ")}\n`
       )
       .join("\n\n");
 
@@ -385,12 +359,14 @@ export default function CulturalTranscriber() {
 
   const getStatusColor = () => {
     if (error) return "bg-red-500";
+    if (isProcessing) return "bg-yellow-500 animate-pulse";
     if (isListening) return "bg-green-500 animate-pulse";
     return "bg-gray-500";
   };
 
   const getStatusText = () => {
     if (error) return "Error";
+    if (isProcessing) return "Processing...";
     if (isListening) return "Listening...";
     return "Ready";
   };
@@ -416,7 +392,7 @@ export default function CulturalTranscriber() {
                 value={sourceLanguage}
                 onChange={(e) => setSourceLanguage(e.target.value)}
                 disabled={isListening}
-                className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold text-gray-900"
               >
                 {languages.map((lang) => (
                   <option key={lang.code} value={lang.code}>
@@ -436,7 +412,7 @@ export default function CulturalTranscriber() {
                 value={targetLanguage}
                 onChange={(e) => setTargetLanguage(e.target.value)}
                 disabled={isListening}
-                className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                className="px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold text-gray-900"
               >
                 {languages.map((lang) => (
                   <option key={lang.code} value={lang.code}>
@@ -454,12 +430,20 @@ export default function CulturalTranscriber() {
             </div>
           )}
 
+          {/* Processing Indicator */}
+          {isProcessing && (
+            <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+              <span>Processing translation and cultural references...</span>
+            </div>
+          )}
+
           {/* Control Buttons */}
           <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 mb-3 sm:mb-4 w-full">
             {!isListening ? (
               <button
                 onClick={startListening}
-                disabled={!isSupported}
+                disabled={!isSupported || isProcessing}
                 className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg min-h-[44px] text-sm sm:text-sm"
               >
                 <span className="text-base sm:text-base">🎤</span>
@@ -529,8 +513,6 @@ export default function CulturalTranscriber() {
                     <div className="text-gray-800">{transcript}</div>
                   </div>
                 )}
-                {/* If we have a translated text for the live session, show it below original */}
-                {/** Note: live session translation only available after stop (when conversation saved) **/}
                 {interimTranscript && interimResults && (
                   <div className="italic text-amber-600">
                     <span className="text-xs font-medium">Interim: </span>
@@ -541,12 +523,13 @@ export default function CulturalTranscriber() {
             </div>
           </div>
         )}
-        {/*Cultural Highlights */}
+
+        {/* All Cultural Highlights */}
         {culturalHighlights.length > 0 && ( 
           <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-6 mb-4 border border-amber-100">
               <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center space-x-2">
                 <span>🔍</span>
-                <span>Cultural Highlights (Session)</span>
+                <span>All Cultural References (Session History)</span>
              </h2>
                <div className="mb-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">
@@ -566,6 +549,7 @@ export default function CulturalTranscriber() {
               </div>
           </div>
         )}
+
         {/* Chat Container */}
         <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg border border-amber-100">
           <div className="p-4 border-b border-amber-200">
@@ -634,18 +618,19 @@ export default function CulturalTranscriber() {
                     </div>
                   )}
 
-                  {/* Cultural Highlights */}
+                  {/* Cultural Highlights - moved below translated text */}
                   {conversation.culturalHighlights.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-1">Cultural References:</h4>
-                      <div className="flex flex-wrap gap-1">
+                    <div className="mb-3">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Cultural References:</h4>
+                      <div className="flex flex-wrap gap-2">
                         {conversation.culturalHighlights.map((highlight, index) => (
-                          <span
+                          <div
                             key={index}
-                            className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs"
+                            className="bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-300 px-3 py-1 rounded-full text-sm"
                           >
-                            {highlight.word}
-                          </span>
+                            <span className="font-medium text-purple-800">{highlight.title}</span>
+                            <span className="text-purple-600 ml-1">({highlight.definition})</span>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -666,6 +651,7 @@ export default function CulturalTranscriber() {
             <li>• Cultural references will be highlighted as you speak</li>
             <li>• Click "Stop Recording" to play back audio and save the conversation</li>
             <li>• Each conversation appears at the top with original text and cultural highlights</li>
+            <li>• Each conversation now has its own unique cultural references</li>
           </ul>
         </div>
       </div>

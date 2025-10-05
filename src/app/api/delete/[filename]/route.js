@@ -23,3 +23,18 @@ export async function DELETE(request, { params }) {
     });
   }
 }
+
+      }
+    }
+    
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    return new Response(JSON.stringify({ error: "Failed to delete file" }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
